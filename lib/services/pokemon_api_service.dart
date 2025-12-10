@@ -8,9 +8,9 @@ class PokemonApiService {
   // Obtener lista de pokemones (con paginación) - OPTIMIZADO CON LOTES
   Future<List<Pokemon>> getPokemons({int limit = 151, int offset = 0}) async {
     try {
-      final response = await http.get(
-        Uri.parse('$baseUrl/pokemon?limit=$limit&offset=$offset'),
-      );
+      final response = await http
+          .get(Uri.parse('$baseUrl/pokemon?limit=$limit&offset=$offset'))
+          .timeout(const Duration(seconds: 30));
 
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
@@ -26,30 +26,41 @@ class PokemonApiService {
               : results.length;
           final batch = results.sublist(i, end);
 
-          // Procesar lote en paralelo
+          // Procesar lote en paralelo con timeout
           final futures = batch
               .map((item) => getPokemonDetails(item['url']))
               .toList();
-          final batchResults = await Future.wait(futures);
 
-          // Agregar resultados válidos
-          allPokemons.addAll(batchResults.whereType<Pokemon>());
+          try {
+            final batchResults = await Future.wait(
+              futures,
+              eagerError: false,
+            ).timeout(const Duration(seconds: 30));
+
+            // Agregar resultados válidos
+            allPokemons.addAll(batchResults.whereType<Pokemon>());
+          } catch (e) {
+            // Continuar con el siguiente lote si hay error
+            continue;
+          }
         }
 
         return allPokemons;
       } else {
-        throw Exception('Error al cargar pokemones');
+        throw Exception('Error ${response.statusCode}: ${response.body}');
       }
     } catch (e) {
-      // Error al cargar pokemones
-      return [];
+      // Retornar lista vacía en lugar de lanzar excepción
+      rethrow;
     }
   }
 
   // Obtener detalles de un pokemon específico
   Future<Pokemon?> getPokemonDetails(String url) async {
     try {
-      final response = await http.get(Uri.parse(url));
+      final response = await http
+          .get(Uri.parse(url))
+          .timeout(const Duration(seconds: 10));
 
       if (response.statusCode == 200) {
         final data = json.decode(response.body);

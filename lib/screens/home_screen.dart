@@ -37,6 +37,25 @@ class _HomeScreenState extends State<HomeScreen> {
       // Cargar 100 pokemones para tener más variedad
       final pokemons = await _apiService.getPokemons(limit: 100);
 
+      if (pokemons.isEmpty) {
+        // Si no hay pokémons, mostrar error
+        if (mounted) {
+          setState(() {
+            _isLoading = false;
+          });
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text(
+                'No se pudieron cargar los pokémones. Verifica tu conexión a internet.',
+              ),
+              duration: Duration(seconds: 5),
+              backgroundColor: Colors.orange,
+            ),
+          );
+        }
+        return;
+      }
+
       // Verificar cuáles están en favoritos
       for (var pokemon in pokemons) {
         pokemon.isFavorite = await _dbHelper.isFavorite(pokemon.id);
@@ -53,7 +72,16 @@ class _HomeScreenState extends State<HomeScreen> {
       });
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error al cargar pokemones: $e')),
+          SnackBar(
+            content: Text('Error: $e\n\nVerifica tu conexión a internet.'),
+            duration: const Duration(seconds: 8),
+            backgroundColor: Colors.red,
+            action: SnackBarAction(
+              label: 'Reintentar',
+              textColor: Colors.white,
+              onPressed: _loadPokemons,
+            ),
+          ),
         );
       }
     }
